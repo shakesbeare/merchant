@@ -5,3 +5,14 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8.5"
+rust_decimal = "1.36.0"
+rust_decimal_macros = "1.36.0"
+serde = { version = "1.0.217", features = ["derive"] }
+phf = { version = "0.11.3", features = ["macros"] }
+ron = "0.8.1"
+
+[build-dependencies]
+ron = "0.8.1"
+rust_decimal = "1.36.0"
+rust_decimal_macros = "1.36.0"
+serde = { version = "1.0.217", features = ["derive"] }

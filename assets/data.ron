@@ -1,0 +1,8 @@
+(
+    probabilities: {
+        "Provisions": 0.5,
+        "Supplies": 0.25,
+        "Armor": 0.125,
+        "Weapons": 0.125,
+    }
+)
