@@ -1,5 +1,3 @@
-use rust_decimal::Decimal;
-use rust_decimal_macros::dec;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -12,7 +10,9 @@ const OUT_PATH: &str = "data.rs";
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Data {
-    probabilities: HashMap<String, Decimal>,
+    probabilities: HashMap<String, f32>,
+    provisions_kinds: Vec<String>,
+    supplies_kinds: Vec<String>,
 }
 
 fn main() {
@@ -37,8 +37,8 @@ fn get_or_create_data() -> Data {
 }
 
 fn verify_data(data: &Data) -> Result<(), String> {
-    let sum: Decimal = data.probabilities.values().sum();
-    if sum != dec!(1.0) {
+    let sum: f32 = data.probabilities.values().sum();
+    if sum != 1.0 {
         return Err("Probabilities must add to precisely 1.0".to_string());
     }
 
@@ -49,25 +49,68 @@ fn codegen(data: &Data) {
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let out_path = PathBuf::from(out_dir).join(PathBuf::from(OUT_PATH));
 
-    let mut insertions = String::new();
+    let mut kinds = String::new();
+    let mut probs = String::new();
     for key in data.probabilities.keys() {
         let value = data.probabilities.get(key).unwrap();
-        let line = format!("\"{}\" => dec!({}),\n", key, value);
-        insertions.push_str(&line);
+        let line = format!("(ItemKind::{}, {}),\n", key, value);
+        let enum_entry = format!("{},\n", key);
+        probs.push_str(&line);
+        kinds.push_str(&enum_entry);
+    }
+
+    let mut prov_kinds = String::new();
+    for kind in data.provisions_kinds.iter() {
+        let line = format!("{},\n", kind);
+        prov_kinds.push_str(&line);
+    }
+
+    let mut supp_kinds = String::new();
+    let mut supp_strs = String::new();
+    for supp in data.supplies_kinds.iter() {
+        let kind = supp.chars().filter(|c| c.is_alphanumeric()).collect::<String>();
+        let enum_variant = format!("{},\n", kind);
+        let string_rep = format!("Self::{} => write!(f, \"{}\"),\n", kind, supp);
+        supp_kinds.push_str(&enum_variant);
+        supp_strs.push_str(&string_rep);
     }
 
     let out_string = format!(
         "
-    use rust_decimal::Decimal;
-    use rust_decimal_macros::dec;
     use std::collections::HashMap;
-    use phf::phf_map;
-    
-    static PROBABILITIES: phf::Map<&str, Decimal> = phf_map! {{
+
+    lazy_static::lazy_static! {{
+        static ref PROBABILITIES: HashMap<ItemKind, f32> = HashMap::from([
+            {}
+        ]);
+    }}
+
+
+    #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, enum_derived::Rand)]
+    pub enum ProvisionsKind {{
         {}
-    }};
+    }}
+
+    #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, enum_derived::Rand)]
+    pub enum ItemKind {{
+        {}
+    }}
+
+    #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash, enum_derived::Rand)]
+    pub enum SuppliesKind {{
+        {}
+    }}
+
+    impl std::fmt::Display for SuppliesKind {{
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{
+            match self {{
+                {}
+            }}
+        }}
+    }}
+
     ",
-        insertions
+        probs, prov_kinds, kinds, supp_kinds, supp_strs,
     );
 
     std::fs::write(&out_path, out_string).unwrap();
