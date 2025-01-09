@@ -3,7 +3,7 @@ use enum_derived::Rand;
 
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
-const VALUE_DIST_MEAN: f32 = 2.0;
+const VALUE_DIST_MEAN: f32 = 0.0;
 const VALUE_DIST_SD: f32 = 3.0;
 
 type MerchantInventory = Vec<Item>;
@@ -18,7 +18,8 @@ pub struct Item {
 // the higher the prob, the lower the value
 fn get_value<R: Rng>(mut rng: R) -> f32 {
     let normal = rand_distr::Normal::new(VALUE_DIST_MEAN, VALUE_DIST_SD).unwrap();
-    normal.sample(&mut rng).abs()
+    let val = normal.sample(&mut rng).abs();
+    if val == 0.0 { 1.0 } else { val }
 }
 
 fn generate_one<R: Rng>(mut rng: R) -> Item {
@@ -38,8 +39,12 @@ fn generate_one<R: Rng>(mut rng: R) -> Item {
             value = value.round();
         }
         ItemKind::Supplies => {}
-        ItemKind::Weapons => {}
-        ItemKind::Armor => {}
+        ItemKind::Weapons => {
+            value *= 30.0;
+        }
+        ItemKind::Armor => {
+            value *= 17.5;
+        }
     }
 
     let name = if kind == ItemKind::Provisions {
@@ -71,7 +76,7 @@ fn generate_inventory(wealth: f32) -> MerchantInventory {
 }
 
 fn main() {
-    let wealth = 300.0;
+    let wealth = 200.0;
     let inv = generate_inventory(wealth);
     dbg!(inv);
 }
