@@ -1,10 +1,16 @@
-use rand::{distributions::WeightedIndex, prelude::Distribution, seq::SliceRandom, Rng};
+#![allow(clippy::map_entry)]
+
+use rand::{distributions::WeightedIndex, prelude::Distribution, Rng};
 use enum_derived::Rand;
 
 include!(concat!(env!("OUT_DIR"), "/data.rs"));
 
 const VALUE_DIST_MEAN: f32 = 0.0;
-const VALUE_DIST_SD: f32 = 3.0;
+const VALUE_DIST_SD: f32 = 1.0;
+
+const PROVISIONS_MAX: f32 = 2.0;
+const ARMOR_MAX: f32 = 35.0;
+const WEAPONS_MAX: f32 = 20.0;
 
 type MerchantInventory = Vec<Item>;
 
@@ -36,14 +42,14 @@ fn generate_one<R: Rng>(mut rng: R) -> Item {
 
     match kind {
         ItemKind::Provisions => {
-            value = value.round();
+            value = (PROVISIONS_MAX * value).round();
         }
         ItemKind::Supplies => {}
         ItemKind::Weapons => {
-            value *= 30.0;
+            value = (WEAPONS_MAX * value).round();
         }
         ItemKind::Armor => {
-            value *= 17.5;
+            value = (ARMOR_MAX * value).round();
         }
     }
 
