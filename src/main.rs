@@ -75,8 +75,65 @@ fn generate_inventory(wealth: f32) -> MerchantInventory {
     inventory
 }
 
+fn format_inventory(inv: MerchantInventory) -> String {
+    let mut provs: HashMap<String, usize> = HashMap::new();
+    let mut supps: HashMap<String, usize> = HashMap::new();
+    //TODO
+    let mut armor: HashMap<String, f32> = HashMap::new();
+    let mut weapons: HashMap<String, f32> = HashMap::new();
+
+    for item in inv {
+        match item.kind {
+            ItemKind::Provisions => {
+                if provs.contains_key(&item.name) {
+                    *provs.get_mut(&item.name).unwrap() += item.value as usize;
+                } else {
+                    provs.insert(item.name, item.value as usize);
+                }
+            }
+            ItemKind::Supplies => {
+                if supps.contains_key(&item.name) {
+                    *supps.get_mut(&item.name).unwrap() += 1;
+                } else {
+                    supps.insert(item.name, 1);
+                }
+            }
+            ItemKind::Armor => {
+                armor.insert(item.name, item.value);
+            }
+            ItemKind::Weapons => {
+                weapons.insert(item.name, item.value);
+            }
+        }
+    }
+    let mut out = String::new();
+
+    for (key, value) in provs {
+        let line = format!("{} x{}-days\n", key, value);
+        out.push_str(&line);
+    }
+
+    for (key, value) in supps {
+        let line = format!("{} x{}\n", key, value);
+        out.push_str(&line);
+    }
+
+    for (key, value) in armor {
+        let line = format!("Armor: {} for {}g\n", key, value);
+        out.push_str(&line);
+    }
+
+    for (key, value) in weapons {
+        let line = format!("Weapon: {} for {}g\n", key, value);
+        out.push_str(&line);
+    }
+
+    out
+}
+
 fn main() {
     let wealth = 200.0;
     let inv = generate_inventory(wealth);
-    dbg!(inv);
+    println!("{}", format_inventory(inv));
 }
+
