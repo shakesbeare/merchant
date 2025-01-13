@@ -27,7 +27,7 @@ async fn main() {
         std::process::exit(1);
     });
 
-    let mut merchant = Merchant::new(1000, 10);
+    let mut merchant = Merchant::by_level(1);
     merchant.generate_inventory(&pool).await;
     println!("{}", &merchant);
     dbg!(merchant.len());
