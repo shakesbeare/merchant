@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use sqlx::{sqlite::SqlitePoolOptions, Pool, Row, Sqlite};
+use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use std::{collections::HashMap, fs::File, path::Path};
 
 use crate::item::{Item, ItemCategory, Rarity};

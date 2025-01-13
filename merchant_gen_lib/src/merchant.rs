@@ -4,13 +4,11 @@ use crate::{
     database,
     item::{Item, ItemCategory, Price, Rarity},
 };
-use anyhow::{Context, Result};
+use anyhow::Result;
 use enum_derived::Rand;
 use rand::{seq::SliceRandom, Rng};
 use sqlx::{Pool, Sqlite};
 
-const MIN_ARMOR_COST: i32 = 20;
-const MIN_CONSUMABLE_COST: i32 = 300;
 const UNCOMMON_CHANCE: f32 = 0.005;
 const RARE_CHANCE: f32 = 0.001;
 const MERCHANT_WEALTH_DIVISOR: i32 = 3;
@@ -103,7 +101,7 @@ impl Merchant {
             count += 1;
         }
 
-        self.add_all_to_inv(pool, self.wealth).await;
+        self.add_all_to_inv(pool, self.wealth).await?;
         self.inventory
             .sort_unstable_by(|a, b| a.item_category.cmp(&b.item_category));
 
@@ -122,6 +120,8 @@ impl Merchant {
     async fn add_all_to_inv(&mut self, pool: &Pool<Sqlite>, mut allowance: i32) -> Result<()> {
         let mut rng = rand::thread_rng();
         let minimums = database::get_min_for_each_category(pool, self.level).await?;
+
+        #[allow(unused_assignments)]
         let mut minimum = 0;
 
         while allowance > 0 {
@@ -171,6 +171,7 @@ impl Merchant {
         Ok(())
     }
 
+    #[allow(dead_code)]
     async fn add_category_to_inv<F: Fn(i32, i32) -> bool>(
         &mut self,
         pool: &Pool<Sqlite>,
@@ -242,9 +243,9 @@ impl std::fmt::Display for Merchant {
         }
 
         for (key, items) in categories {
-            writeln!(f, "\n---------- {} ----------", key);
+            writeln!(f, "\n---------- {} ----------", key)?;
             for (name, (count, price)) in items {
-                writeln!(f, "{} x{} - {}", name, count, price);
+                writeln!(f, "{} x{} - {}", name, count, price)?;
             }
         }
 

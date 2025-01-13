@@ -1,13 +1,5 @@
-#![allow(unused)]
-#![allow(dead_code)]
-
-mod database;
-mod item;
-mod merchant;
-
 use clap::{command, Parser};
-use item::ItemCategory;
-use merchant::Merchant;
+use merchant_gen_lib::merchant::Merchant;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Parser)]
@@ -33,9 +25,7 @@ enum Subcommand {
     },
 
     /// Load and display an existing merchant
-    Load {
-        filename: String,
-    }
+    Load { filename: String },
 }
 
 #[tokio::main]
@@ -51,20 +41,26 @@ async fn main() {
         .with_max_level(tracing::Level::WARN)
         .init();
 
-    let pool = database::init_db().await.unwrap_or_else(|e| {
-        tracing::error!("An error occurred: {}", e);
-        std::process::exit(1);
-    });
+    let pool = merchant_gen_lib::database::init_db()
+        .await
+        .unwrap_or_else(|e| {
+            tracing::error!("An error occurred: {}", e);
+            std::process::exit(1);
+        });
 
     let cli = Cli::parse();
 
     match cli.subcmd {
-        Subcommand::Generate { level, save, markdown } => {
+        Subcommand::Generate {
+            level,
+            save,
+            markdown,
+        } => {
             let mut merchant = Merchant::by_level(level);
             merchant.generate_inventory(&pool).await.unwrap();
 
-            if save { 
-                merchant.save();
+            if save {
+                merchant.save().unwrap();
             }
 
             if markdown {
@@ -73,7 +69,7 @@ async fn main() {
                 println!("{}", merchant);
             }
         }
-        Subcommand::Load{ filename } => {
+        Subcommand::Load { filename } => {
             let merchant = Merchant::read_from_file(filename);
             println!("{}", merchant);
         }
