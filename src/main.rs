@@ -33,6 +33,4 @@ async fn main() {
     let mut merchant = Merchant::by_level(5);
     merchant.generate_inventory(&pool).await;
     println!("{}", &merchant);
-    dbg!(merchant.len());
-    dbg!(merchant.get_wealth_in_inv() / 100);
 }

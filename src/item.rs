@@ -132,73 +132,119 @@ impl std::fmt::Display for Price {
     }
 }
 
-#[derive(enum_derived::Rand, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, enum_iterator::Sequence, Hash)]
+#[derive(
+    enum_derived::Rand,
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    enum_iterator::Sequence,
+    Hash,
+)]
 pub enum ItemCategory {
     #[weight(0)]
     Vehicles,
+
     #[weight(60)]
     Weapons,
+
     #[weight(25)]
     AdventuringGear,
+
     #[weight(25)]
     AlchemicalItems,
+
     #[weight(0)]
     Services,
+
     #[weight(25)]
     TradeGoods,
+
     #[weight(0)]
     AnimalsandGear,
+
     #[weight(25)]
     Materials,
+
     #[weight(60)]
     Armor,
+
     AssistiveItems,
+
     Adjustments,
+
     #[weight(25)]
     Shields,
+
     Other,
+
     Customizations,
+
     #[weight(50)]
     Consumables,
+
     Snares,
+
     #[weight(25)]
     HeldItems,
+
     #[weight(25)]
     WornItems,
+
     #[weight(12)]
     Grafts,
+
     #[weight(4)]
     Tattoos,
+
     #[weight(0)]
     SiegeWeapons,
+
     #[weight(10)]
     Runes,
+
     #[weight(0)]
     Artifacts,
+
     #[weight(0)]
     CursedItems,
+
     #[weight(10)]
     Spellhearts,
+
     #[weight(60)]
     Wands,
+
     #[weight(60)]
     Staves,
+
     #[weight(0)]
     IntelligentItems,
+
     #[weight(0)]
     Contracts,
+
     #[weight(0)]
     Relics,
+
     #[weight(10)]
     Grimoires,
+
     #[weight(3)]
     Structures,
+
     #[weight(3)]
     Censer,
+
     #[weight(3)]
     Figurehead,
+
     #[weight(0)]
     BlightedBoons,
+
     #[weight(0)]
     HighTech,
 }
@@ -262,7 +308,6 @@ impl AsRef<str> for Rarity {
         }
     }
 }
-
 
 mod tests {
     #![allow(unused)]

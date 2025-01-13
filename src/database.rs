@@ -214,7 +214,10 @@ pub async fn get_rations(pool: &Pool<Sqlite>) -> Item {
     result.into()
 }
 
-pub async fn get_min_for_each_category(pool: &Pool<Sqlite>, level: i32) -> Result<HashMap<ItemCategory, i32>> {
+pub async fn get_min_for_each_category(
+    pool: &Pool<Sqlite>,
+    level: i32,
+) -> Result<HashMap<ItemCategory, i32>> {
     let mut out = HashMap::new();
     for category in enum_iterator::all::<ItemCategory>() {
         let items = get_category(pool, category, Rarity::Common, level, true).await?;
