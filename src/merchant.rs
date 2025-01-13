@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     database,
-    item::{Item, ItemKind, Price, Rarity},
+    item::{Item, ItemCategory, Price, Rarity},
 };
 use anyhow::{Context, Result};
 use enum_derived::Rand;
@@ -11,54 +11,57 @@ use sqlx::{Pool, Sqlite};
 
 const MIN_ARMOR_COST: i32 = 20;
 const MIN_CONSUMABLE_COST: i32 = 300;
-
 const UNCOMMON_CHANCE: f32 = 0.005;
 const RARE_CHANCE: f32 = 0.001;
+const MERCHANT_WEALTH_DIVISOR: i32 = 3;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct Merchant {
     /// The merchant's wealth in cp
     wealth: i32,
+    level: i32,
     inventory: Vec<Item>,
 }
 
 impl Merchant {
-    pub fn new(cp: i32) -> Self {
+    pub fn new(cp: i32, level: i32) -> Self {
         Self {
             wealth: cp,
+            level,
             inventory: vec![],
         }
     }
 
-    pub fn from_gp(gp: i32) -> Self {
-        Self::new(gp * 100)
+    pub fn from_gp(gp: i32, level: i32) -> Self {
+        Self::new(gp * 100, level)
     }
 
     pub fn by_level(level: i32) -> Self {
         let gp = match level {
-            1 => 175,
-            2 => 300,
-            3 => 500,
-            4 => 850,
-            5 => 1350,
-            6 => 2000,
-            7 => 2900,
-            8 => 4000,
-            9 => 5700,
-            10 => 8000,
-            11 => 11500,
-            12 => 16500,
-            13 => 25000,
-            14 => 36500,
-            15 => 54500,
-            16 => 82500,
-            17 => 128000,
-            18 => 208000,
-            19 => 355000,
-            20 => 490000,
+            // numbers taken from Treasure By Level table for players
+            1 => 175 / MERCHANT_WEALTH_DIVISOR,
+            2 => 300 / MERCHANT_WEALTH_DIVISOR,
+            3 => 500 / MERCHANT_WEALTH_DIVISOR,
+            4 => 850 / MERCHANT_WEALTH_DIVISOR,
+            5 => 1350 / MERCHANT_WEALTH_DIVISOR,
+            6 => 2000 / MERCHANT_WEALTH_DIVISOR,
+            7 => 2900 / MERCHANT_WEALTH_DIVISOR,
+            8 => 4000 / MERCHANT_WEALTH_DIVISOR,
+            9 => 5700 / MERCHANT_WEALTH_DIVISOR,
+            10 => 8000 / MERCHANT_WEALTH_DIVISOR,
+            11 => 11500 / MERCHANT_WEALTH_DIVISOR,
+            12 => 16500 / MERCHANT_WEALTH_DIVISOR,
+            13 => 25000 / MERCHANT_WEALTH_DIVISOR,
+            14 => 36500 / MERCHANT_WEALTH_DIVISOR,
+            15 => 54500 / MERCHANT_WEALTH_DIVISOR,
+            16 => 82500 / MERCHANT_WEALTH_DIVISOR,
+            17 => 128000 / MERCHANT_WEALTH_DIVISOR,
+            18 => 208000 / MERCHANT_WEALTH_DIVISOR,
+            19 => 355000 / MERCHANT_WEALTH_DIVISOR,
+            20 => 490000 / MERCHANT_WEALTH_DIVISOR,
             _ => unreachable!(),
         };
-        Self::from_gp(gp)
+        Self::from_gp(gp, level)
     }
 
     pub fn read_from_file<S: AsRef<str>>(filename: S) -> Self {
@@ -81,14 +84,7 @@ impl Merchant {
     }
 
     pub async fn generate_inventory(&mut self, pool: &Pool<Sqlite>) -> Result<()> {
-        let max_items = self.wealth / (10 * 100);
-        let armor_weapons = self.wealth / 2;
-        let remainder = self.wealth - armor_weapons;
-        let mut rations_allowance = remainder / 24;
-        let mut alch_allowance = 3 * remainder / 20;
-        let mut adv_gear_allowance = 4 * remainder / 8;
-        let mut armor_allowance = armor_weapons / 2;
-        let mut weapons_allowance = armor_weapons / 2;
+        let mut rations_allowance = self.wealth / 24;
 
         let rations = database::get_rations(pool).await;
         let rations_price = rations.price.clone().unwrap().as_cp();
@@ -100,47 +96,9 @@ impl Merchant {
             count += 1;
         }
 
-        let minimum_value = (self.wealth as f32 * 0.02) as i32;
-
-        self.add_category_to_inv(
-            pool,
-            ItemKind::AdventuringGear,
-            None,
-            adv_gear_allowance,
-            |allowance, count| allowance > 0 && count < max_items / 4,
-        )
-        .await;
-
-        self.add_category_to_inv(
-            pool,
-            ItemKind::Consumables,
-            Some("Potions"),
-            alch_allowance,
-            |allowance, count| {
-                allowance > MIN_CONSUMABLE_COST && count < max_items / 4
-            },
-        )
-        .await;
-
-        self.add_category_to_inv(
-            pool,
-            ItemKind::Armor,
-            None,
-            weapons_allowance,
-            |allowance, count| {
-                allowance > MIN_ARMOR_COST && allowance > minimum_value && count < max_items / 4
-            },
-        )
-        .await;
-
-        self.add_category_to_inv(
-            pool,
-            ItemKind::Weapons,
-            None,
-            weapons_allowance,
-            |allowance, count| allowance > 0 && count < max_items / 4,
-        )
-        .await;
+        self.add_all_to_inv(pool, self.wealth).await;
+        self.inventory
+            .sort_unstable_by(|a, b| a.item_category.cmp(&b.item_category));
 
         Ok(())
     }
@@ -154,25 +112,78 @@ impl Merchant {
         sum
     }
 
+    async fn add_all_to_inv(&mut self, pool: &Pool<Sqlite>, mut allowance: i32) -> Result<()> {
+        let mut rng = rand::thread_rng();
+        let minimums = database::get_min_for_each_category(pool, self.level).await?;
+        let mut minimum = 0;
+
+        while allowance > 0 {
+            let category = ItemCategory::rand();
+            let temp = minimums.get(&category);
+
+            if temp.is_none() {
+                continue;
+            }
+            minimum = *temp.unwrap();
+
+            let items =
+                database::get_category(pool, category, Rarity::Common, self.level, true).await?;
+            let uncommon =
+                database::get_category(pool, category, Rarity::Uncommon, self.level, true).await?;
+            let rare =
+                database::get_category(pool, category, Rarity::Rare, self.level, true).await?;
+
+            if allowance < minimum {
+                continue;
+            }
+
+            let mut choice = items.choose(&mut rng).unwrap();
+            let mut price = choice.price.as_ref().unwrap().as_cp();
+            while price > allowance {
+                choice = items.choose(&mut rng).unwrap();
+                price = choice.price.as_ref().unwrap().as_cp();
+            }
+
+            let upgrade_roll = rng.gen_range(0.0..1.0);
+            if upgrade_roll <= UNCOMMON_CHANCE {
+                let maybe_choice = uncommon.choose(&mut rng);
+                if maybe_choice.is_some() {
+                    choice = maybe_choice.unwrap();
+                }
+            } else if upgrade_roll <= RARE_CHANCE {
+                let maybe_choice = rare.choose(&mut rng);
+                if maybe_choice.is_some() {
+                    choice = maybe_choice.unwrap();
+                }
+            }
+
+            self.inventory.push(choice.clone());
+            allowance -= price;
+        }
+
+        Ok(())
+    }
+
     async fn add_category_to_inv<F: Fn(i32, i32) -> bool>(
         &mut self,
         pool: &Pool<Sqlite>,
-        category: ItemKind,
+        category: ItemCategory,
         subcategory: Option<&str>,
         mut allowance: i32,
         predicate: F,
     ) -> Result<()> {
         let mut rng = rand::thread_rng();
 
-        let mut items = database::get_category(pool, category, Rarity::Common, true).await?;
+        let mut items =
+            database::get_category(pool, category, Rarity::Common, self.level, true).await?;
         if let Some(subcategory) = subcategory {
             items.retain(|i| i.item_subcategory == subcategory);
         }
         let items = items; // immutable rebind
 
-        
-        let uncommon = database::get_category(pool, category, Rarity::Uncommon, true).await?;
-        let rare = database::get_category(pool, category, Rarity::Rare, true).await?;
+        let uncommon =
+            database::get_category(pool, category, Rarity::Uncommon, self.level, true).await?;
+        let rare = database::get_category(pool, category, Rarity::Rare, self.level, true).await?;
 
         let mut count = 0;
 
@@ -202,61 +213,32 @@ impl Merchant {
 
 impl std::fmt::Display for Merchant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut adv_gear: HashMap<String, (i32, Price)> = HashMap::new();
-        let mut consumables: HashMap<String, (i32, Price)> = HashMap::new();
-        let mut weapons: HashMap<String, (i32, Price)> = HashMap::new();
-        let mut armor: HashMap<String, (i32, Price)> = HashMap::new();
+        let mut categories: HashMap<&str, HashMap<&str, (i32, &Price)>> = HashMap::new();
         for item in self.inventory.iter() {
-            // writeln!(f, "{} - {}", item.name, item.price.as_ref().unwrap());
-            match item.item_category.as_ref() {
-                "Adventuring Gear" => {
-                    if adv_gear.contains_key(&item.name) {
-                        adv_gear.get_mut(&item.name).unwrap().0 += 1;
-                    } else {
-                        adv_gear.insert(item.name.clone(), (1, item.price.clone().unwrap()));
-                    }
+            if categories.contains_key(item.item_category.as_str()) {
+                // outer has key
+                let inner = categories.get_mut(item.item_category.as_str()).unwrap();
+
+                if inner.contains_key(item.name.as_str()) {
+                    // inner has key
+                    inner.get_mut(item.name.as_str()).unwrap().0 += 1;
+                } else {
+                    // inner doesn't have key
+                    inner.insert(item.name.as_str(), (1, item.price.as_ref().unwrap()));
                 }
-                "Weapons" => {
-                    if weapons.contains_key(&item.name) {
-                        weapons.get_mut(&item.name).unwrap().0 += 1;
-                    } else {
-                        weapons.insert(item.name.clone(), (1, item.price.clone().unwrap()));
-                    }
-                }
-                "Armor" => {
-                    if armor.contains_key(&item.name) {
-                        armor.get_mut(&item.name).unwrap().0 += 1;
-                    } else {
-                        armor.insert(item.name.clone(), (1, item.price.clone().unwrap()));
-                    }
-                }
-                "Consumables" => {
-                    if consumables.contains_key(&item.name) {
-                        consumables.get_mut(&item.name).unwrap().0 += 1;
-                    } else {
-                        consumables
-                            .insert(item.name.clone(), (1, item.price.clone().unwrap()));
-                    }
-                }
-                _ => todo!(),
+            } else {
+                // outer doesn't have key
+                let mut new_inner = HashMap::new();
+                new_inner.insert(item.name.as_str(), (1, item.price.as_ref().unwrap()));
+                categories.insert(item.item_category.as_str(), new_inner);
             }
         }
 
-        writeln!(f, "\n---------- ADVENTURING GEAR ---------- ");
-        for (key, (count, price)) in adv_gear.into_iter() {
-            writeln!(f, "{} x{} - {}", key, count, price);
-        }
-        writeln!(f, "\n---------- POTIONS ---------- ");
-        for (key, (count, price)) in consumables.into_iter() {
-            writeln!(f, "{} x{} - {}", key, count, price);
-        }
-        writeln!(f, "\n---------- ARMOR ---------- ");
-        for (key, (count, price)) in armor.into_iter() {
-            writeln!(f, "{} x{} - {}", key, count, price);
-        }
-        writeln!(f, "\n---------- WEAPONS ---------- ");
-        for (key, (count, price)) in weapons.into_iter() {
-            writeln!(f, "{} x{} - {}", key, count, price);
+        for (key, items) in categories {
+            writeln!(f, "\n---------- {}----------", key);
+            for (name, (count, price)) in items {
+                writeln!(f, "{} x{} - {}", name, count, price);
+            }
         }
 
         Ok(())

@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Row, Sqlite};
-use std::{fs::File, path::Path};
+use std::{collections::HashMap, fs::File, path::Path};
 
-use crate::item::{Item, ItemKind, Rarity};
+use crate::item::{Item, ItemCategory, Rarity};
 
 const DATABASE_PATH: &str = "./database.db";
 
@@ -116,12 +116,41 @@ async fn populate_tables(pool: &Pool<Sqlite>) -> Result<()> {
     Ok(())
 }
 
+pub async fn get_all(
+    pool: &Pool<Sqlite>,
+    rarity: Rarity,
+    ignore_priceless: bool,
+) -> Result<Vec<Item>> {
+    let priceless_filter = if ignore_priceless {
+        "AND price IS NOT NULL AND price != \"\""
+    } else {
+        ""
+    };
+
+    let q = format!(
+        "
+    SELECT * FROM equipment
+    WHERE rarity = $1
+    {}
+    ;",
+        priceless_filter
+    );
+    let results = sqlx::query_as::<_, DbItem>(&q)
+        .bind(rarity.as_ref())
+        .fetch_all(pool)
+        .await
+        .context("Failed to retrieve category from db")?;
+
+    Ok(results.into_iter().map(|c| c.into()).collect())
+}
+
 /// Get all items for a given category
 /// Category must match string exactly as it appears on AoN
 pub async fn get_category(
     pool: &Pool<Sqlite>,
-    category: ItemKind,
+    category: ItemCategory,
     rarity: Rarity,
+    level: i32,
     ignore_priceless: bool,
 ) -> Result<Vec<Item>> {
     let priceless_filter = if ignore_priceless {
@@ -135,6 +164,7 @@ pub async fn get_category(
     SELECT * FROM equipment
     WHERE item_category = $1 
     AND rarity = $2
+    AND level < $3
     {}
     ;",
         priceless_filter
@@ -142,6 +172,7 @@ pub async fn get_category(
     let results = sqlx::query_as::<_, DbItem>(&q)
         .bind(category.as_ref())
         .bind(rarity.as_ref())
+        .bind(level)
         .fetch_all(pool)
         .await
         .context("Failed to retrieve category from db")?;
@@ -168,14 +199,40 @@ pub async fn get_distinct<S: AsRef<str>>(
 }
 
 pub async fn get_rations(pool: &Pool<Sqlite>) -> Item {
-    let result = sqlx::query_as::<_, DbItem>("
+    let result = sqlx::query_as::<_, DbItem>(
+        "
         SELECT * FROM equipment 
         WHERE name = $1;
-        ")
-        .bind("Rations")
-        .fetch_one(pool)
-        .await
-        .context("Rations should exist.").unwrap();
+        ",
+    )
+    .bind("Rations")
+    .fetch_one(pool)
+    .await
+    .context("Rations should exist.")
+    .unwrap();
 
     result.into()
+}
+
+pub async fn get_min_for_each_category(pool: &Pool<Sqlite>, level: i32) -> Result<HashMap<ItemCategory, i32>> {
+    let mut out = HashMap::new();
+    for category in enum_iterator::all::<ItemCategory>() {
+        let items = get_category(pool, category, Rarity::Common, level, true).await?;
+        let min = items
+            .into_iter()
+            .reduce(|a, b| {
+                let lhs_price = a.price.as_ref().unwrap().as_cp();
+                let rhs_price = b.price.as_ref().unwrap().as_cp();
+                if lhs_price < rhs_price {
+                    a
+                } else {
+                    b
+                }
+            })
+            .map(|i| i.price.as_ref().unwrap().as_cp());
+        if let Some(min) = min {
+            out.insert(category, min);
+        }
+    }
+    Ok(out)
 }

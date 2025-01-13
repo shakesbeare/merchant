@@ -132,85 +132,116 @@ impl std::fmt::Display for Price {
     }
 }
 
-#[derive(enum_derived::Rand, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub enum ItemKind {
+#[derive(enum_derived::Rand, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, enum_iterator::Sequence, Hash)]
+pub enum ItemCategory {
+    #[weight(0)]
     Vehicles,
+    #[weight(60)]
     Weapons,
+    #[weight(25)]
     AdventuringGear,
+    #[weight(25)]
     AlchemicalItems,
+    #[weight(0)]
     Services,
+    #[weight(25)]
     TradeGoods,
+    #[weight(0)]
     AnimalsandGear,
+    #[weight(25)]
     Materials,
+    #[weight(60)]
     Armor,
     AssistiveItems,
     Adjustments,
+    #[weight(25)]
     Shields,
     Other,
     Customizations,
+    #[weight(50)]
     Consumables,
     Snares,
+    #[weight(25)]
     HeldItems,
+    #[weight(25)]
     WornItems,
+    #[weight(12)]
     Grafts,
+    #[weight(4)]
     Tattoos,
+    #[weight(0)]
     SiegeWeapons,
+    #[weight(10)]
     Runes,
+    #[weight(0)]
     Artifacts,
+    #[weight(0)]
     CursedItems,
+    #[weight(10)]
     Spellhearts,
+    #[weight(60)]
     Wands,
+    #[weight(60)]
     Staves,
+    #[weight(0)]
     IntelligentItems,
+    #[weight(0)]
     Contracts,
+    #[weight(0)]
     Relics,
+    #[weight(10)]
     Grimoires,
+    #[weight(3)]
     Structures,
+    #[weight(3)]
     Censer,
+    #[weight(3)]
     Figurehead,
+    #[weight(0)]
     BlightedBoons,
+    #[weight(0)]
     HighTech,
 }
 
-impl AsRef<str> for ItemKind {
+impl AsRef<str> for ItemCategory {
     fn as_ref(&self) -> &str {
         match self {
-            ItemKind::Vehicles => "Vehicles",
-            ItemKind::Weapons => "Weapons",
-            ItemKind::AdventuringGear => "Adventuring Gear",
-            ItemKind::AlchemicalItems => "Alchemical Items",
-            ItemKind::Services => "Services",
-            ItemKind::TradeGoods => "Trade Goods",
-            ItemKind::AnimalsandGear => "Animals and Gear",
-            ItemKind::Materials => "Materials",
-            ItemKind::Armor => "Armor",
-            ItemKind::AssistiveItems => "Assistive Items",
-            ItemKind::Adjustments => "Adjustments",
-            ItemKind::Shields => "Shields",
-            ItemKind::Other => "Other",
-            ItemKind::Customizations => "Customizations",
-            ItemKind::Consumables => "Consumables",
-            ItemKind::Snares => "Snares",
-            ItemKind::HeldItems => "Held Items",
-            ItemKind::WornItems => "Worn Items",
-            ItemKind::Grafts => "Grafts",
-            ItemKind::Tattoos => "Tattoos",
-            ItemKind::SiegeWeapons => "Siege Weapons",
-            ItemKind::Runes => "Runes",
-            ItemKind::Artifacts => "Artifacts",
-            ItemKind::CursedItems => "Cursed Items",
-            ItemKind::Spellhearts => "Spellhearts",
-            ItemKind::Wands => "Wands",
-            ItemKind::Staves => "Staves",
-            ItemKind::IntelligentItems => "Intelligent Items",
-            ItemKind::Contracts => "Contracts",
-            ItemKind::Relics => "Relics",
-            ItemKind::Grimoires => "Grimoires",
-            ItemKind::Structures => "Structures",
-            ItemKind::Censer => "Censer",
-            ItemKind::Figurehead => "Figurehead",
-            ItemKind::BlightedBoons => "Blighted Boons",
-            ItemKind::HighTech => "HighTech",
+            ItemCategory::Vehicles => "Vehicles",
+            ItemCategory::Weapons => "Weapons",
+            ItemCategory::AdventuringGear => "Adventuring Gear",
+            ItemCategory::AlchemicalItems => "Alchemical Items",
+            ItemCategory::Services => "Services",
+            ItemCategory::TradeGoods => "Trade Goods",
+            ItemCategory::AnimalsandGear => "Animals and Gear",
+            ItemCategory::Materials => "Materials",
+            ItemCategory::Armor => "Armor",
+            ItemCategory::AssistiveItems => "Assistive Items",
+            ItemCategory::Adjustments => "Adjustments",
+            ItemCategory::Shields => "Shields",
+            ItemCategory::Other => "Other",
+            ItemCategory::Customizations => "Customizations",
+            ItemCategory::Consumables => "Consumables",
+            ItemCategory::Snares => "Snares",
+            ItemCategory::HeldItems => "Held Items",
+            ItemCategory::WornItems => "Worn Items",
+            ItemCategory::Grafts => "Grafts",
+            ItemCategory::Tattoos => "Tattoos",
+            ItemCategory::SiegeWeapons => "Siege Weapons",
+            ItemCategory::Runes => "Runes",
+            ItemCategory::Artifacts => "Artifacts",
+            ItemCategory::CursedItems => "Cursed Items",
+            ItemCategory::Spellhearts => "Spellhearts",
+            ItemCategory::Wands => "Wands",
+            ItemCategory::Staves => "Staves",
+            ItemCategory::IntelligentItems => "Intelligent Items",
+            ItemCategory::Contracts => "Contracts",
+            ItemCategory::Relics => "Relics",
+            ItemCategory::Grimoires => "Grimoires",
+            ItemCategory::Structures => "Structures",
+            ItemCategory::Censer => "Censer",
+            ItemCategory::Figurehead => "Figurehead",
+            ItemCategory::BlightedBoons => "Blighted Boons",
+            ItemCategory::HighTech => "HighTech",
         }
     }
 }
