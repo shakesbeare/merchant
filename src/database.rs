@@ -161,5 +161,18 @@ pub async fn get_distinct<S: AsRef<str>>(
     .await
     .context("Failed to retrieve info from db")?;
 
-    Ok(results.into_iter().map(|c| c.into()).collect())
+    Ok(results)
+}
+
+pub async fn get_rations(pool: &Pool<Sqlite>) -> Item {
+    let result = sqlx::query_as::<_, DbItem>("
+        SELECT * FROM equipment 
+        WHERE name = $1;
+        ")
+        .bind("Rations")
+        .fetch_one(pool)
+        .await
+        .context("Rations should exist.").unwrap();
+
+    result.into()
 }

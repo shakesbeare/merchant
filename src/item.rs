@@ -13,18 +13,18 @@ lazy_static::lazy_static! {
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct Item {
-    name: String,
-    pfs: String,
-    source: String,
-    rarity: String,
-    r#trait: String,
-    item_category: String,
-    item_subcategory: String,
-    level: i32,
-    price: Option<Price>,
-    bulk: String,
-    usage: String,
-    spoilers: String,
+    pub name: String,
+    pub pfs: String,
+    pub source: String,
+    pub rarity: String,
+    pub r#trait: String,
+    pub item_category: String,
+    pub item_subcategory: String,
+    pub level: i32,
+    pub price: Option<Price>,
+    pub bulk: String,
+    pub usage: String,
+    pub spoilers: String,
 }
 
 impl From<DbItem> for Item {
@@ -116,8 +116,23 @@ impl Price {
             cp,
         }))
     }
+
+    pub fn as_cp(&self) -> i32 {
+        let pp = self.pp * 1000;
+        let gp = self.gp * 100;
+        let sp = self.sp * 10;
+
+        pp + gp + sp + self.cp
+    }
 }
 
+impl std::fmt::Display for Price {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.text)
+    }
+}
+
+#[derive(enum_derived::Rand)]
 pub enum ItemKind {
     Vehicles,
     Weapons,
