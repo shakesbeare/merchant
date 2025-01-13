@@ -27,6 +27,9 @@ enum Subcommand {
         /// Save the merchant to a .ron file
         #[arg(long = "save", short)]
         save: bool,
+        /// Format Stdout as markdown
+        #[arg(long = "markdown", short)]
+        markdown: bool,
     },
 
     /// Load and display an existing merchant
@@ -56,13 +59,18 @@ async fn main() {
     let cli = Cli::parse();
 
     match cli.subcmd {
-        Subcommand::Generate { level, save } => {
+        Subcommand::Generate { level, save, markdown } => {
             let mut merchant = Merchant::by_level(level);
             merchant.generate_inventory(&pool).await.unwrap();
-            println!("{}", merchant);
 
             if save { 
                 merchant.save();
+            }
+
+            if markdown {
+                merchant.markdown();
+            } else {
+                println!("{}", merchant);
             }
         }
         Subcommand::Load{ filename } => {

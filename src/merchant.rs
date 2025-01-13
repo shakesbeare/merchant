@@ -79,6 +79,13 @@ impl Merchant {
         Ok(())
     }
 
+    pub fn markdown(&self) {
+        let s = self.to_string();
+        // TODO: remove trailing ###
+        let s = s.replace("----------", "###");
+        println!("{}", s);
+    }
+
     pub fn len(&self) -> usize {
         self.inventory.len()
     }
@@ -235,7 +242,7 @@ impl std::fmt::Display for Merchant {
         }
 
         for (key, items) in categories {
-            writeln!(f, "\n---------- {}----------", key);
+            writeln!(f, "\n---------- {} ----------", key);
             for (name, (count, price)) in items {
                 writeln!(f, "{} x{} - {}", name, count, price);
             }
