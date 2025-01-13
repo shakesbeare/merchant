@@ -5,12 +5,35 @@ mod database;
 mod item;
 mod merchant;
 
+use clap::{command, Parser};
 use item::ItemCategory;
 use merchant::Merchant;
 use tracing_subscriber::EnvFilter;
 
-// load the csv file
-// create a database populated with the same data
+#[derive(Debug, Parser)]
+#[command(name = "merchant")]
+#[command(version, about)]
+struct Cli {
+    #[clap(subcommand)]
+    pub subcmd: Subcommand,
+}
+
+#[derive(Debug, Parser)]
+enum Subcommand {
+    #[clap(name = "gen")]
+    /// Generate a new merchant inventory
+    Generate {
+        level: i32,
+        /// Save the merchant to a .ron file
+        #[arg(long = "save", short)]
+        save: bool,
+    },
+
+    /// Load and display an existing merchant
+    Load {
+        filename: String,
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -30,7 +53,21 @@ async fn main() {
         std::process::exit(1);
     });
 
-    let mut merchant = Merchant::by_level(5);
-    merchant.generate_inventory(&pool).await;
-    println!("{}", &merchant);
+    let cli = Cli::parse();
+
+    match cli.subcmd {
+        Subcommand::Generate { level, save } => {
+            let mut merchant = Merchant::by_level(level);
+            merchant.generate_inventory(&pool).await.unwrap();
+            println!("{}", merchant);
+
+            if save { 
+                merchant.save();
+            }
+        }
+        Subcommand::Load{ filename } => {
+            let merchant = Merchant::read_from_file(filename);
+            println!("{}", merchant);
+        }
+    }
 }
