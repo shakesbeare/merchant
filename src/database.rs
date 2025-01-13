@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Row, Sqlite};
 use std::{fs::File, path::Path};
 
-use crate::item::Item;
+use crate::item::{Item, ItemKind, Rarity};
 
 const DATABASE_PATH: &str = "./database.db";
 
@@ -118,9 +118,10 @@ async fn populate_tables(pool: &Pool<Sqlite>) -> Result<()> {
 
 /// Get all items for a given category
 /// Category must match string exactly as it appears on AoN
-pub async fn get_category<S: AsRef<str>>(
+pub async fn get_category(
     pool: &Pool<Sqlite>,
-    category: S,
+    category: ItemKind,
+    rarity: Rarity,
     ignore_priceless: bool,
 ) -> Result<Vec<Item>> {
     let priceless_filter = if ignore_priceless {
@@ -133,12 +134,14 @@ pub async fn get_category<S: AsRef<str>>(
         "
     SELECT * FROM equipment
     WHERE item_category = $1 
+    AND rarity = $2
     {}
     ;",
         priceless_filter
     );
     let results = sqlx::query_as::<_, DbItem>(&q)
         .bind(category.as_ref())
+        .bind(rarity.as_ref())
         .fetch_all(pool)
         .await
         .context("Failed to retrieve category from db")?;

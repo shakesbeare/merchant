@@ -2,13 +2,18 @@ use std::collections::HashMap;
 
 use crate::{
     database,
-    item::{Item, ItemKind, Price},
+    item::{Item, ItemKind, Price, Rarity},
 };
 use anyhow::{Context, Result};
+use enum_derived::Rand;
 use rand::{seq::SliceRandom, Rng};
 use sqlx::{Pool, Sqlite};
 
 const MIN_ARMOR_COST: i32 = 20;
+const MIN_CONSUMABLE_COST: i32 = 300;
+
+const UNCOMMON_CHANCE: f32 = 0.005;
+const RARE_CHANCE: f32 = 0.001;
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, serde::Serialize, serde::Deserialize)]
 pub struct Merchant {
@@ -21,7 +26,7 @@ impl Merchant {
     pub fn new(cp: i32) -> Self {
         Self {
             wealth: cp,
-            inventory: vec![], // TODO
+            inventory: vec![],
         }
     }
 
@@ -76,105 +81,120 @@ impl Merchant {
     }
 
     pub async fn generate_inventory(&mut self, pool: &Pool<Sqlite>) -> Result<()> {
-        let quotient = (-(self.wealth as f32 / 26400.0).log10() + 2.5);
-        tracing::debug!("armor_weapons quotient  is {}", quotient);
-        let armor_weapons = (self.wealth as f32 / quotient) as i32;
-        tracing::debug!("armor_weapons allowance is {}", armor_weapons);
+        let max_items = self.wealth / (10 * 100);
+        let armor_weapons = self.wealth / 2;
         let remainder = self.wealth - armor_weapons;
-        let mut rations_allowance = remainder / 8;
-        let mut adv_gear_allowance = 7 * remainder / 8;
+        let mut rations_allowance = remainder / 24;
+        let mut alch_allowance = 3 * remainder / 20;
+        let mut adv_gear_allowance = 4 * remainder / 8;
         let mut armor_allowance = armor_weapons / 2;
         let mut weapons_allowance = armor_weapons / 2;
 
         let rations = database::get_rations(pool).await;
         let rations_price = rations.price.clone().unwrap().as_cp();
 
-        let mut adventuring_gear =
-            database::get_category(pool, ItemKind::AdventuringGear, true).await?;
-        let mut weapons = database::get_category(pool, ItemKind::Weapons, true).await?;
-        let mut armor = database::get_category(pool, ItemKind::Armor, true).await?;
-
-        adventuring_gear.sort_unstable_by(|a, b| {
-            b.price
-                .as_ref()
-                .unwrap()
-                .as_cp()
-                .cmp(&a.price.as_ref().unwrap().as_cp())
-        });
-        weapons.sort_unstable_by(|a, b| {
-            b.price
-                .as_ref()
-                .unwrap()
-                .as_cp()
-                .cmp(&a.price.as_ref().unwrap().as_cp())
-        });
-        armor.sort_unstable_by(|a, b| {
-            b.price
-                .as_ref()
-                .unwrap()
-                .as_cp()
-                .cmp(&a.price.as_ref().unwrap().as_cp())
-        });
-        let mut rng = rand::thread_rng();
-
-        tracing::trace!("Beginning inv generation");
-
-        while rations_allowance > 0 {
+        let mut count = 0;
+        while rations_allowance > 0 && count < 10 {
             self.inventory.push(rations.clone());
             rations_allowance -= rations_price;
+            count += 1;
         }
-
-        tracing::trace!("Rations done");
 
         let minimum_value = (self.wealth as f32 * 0.02) as i32;
 
-        let mut i = rng.gen_range(0..adventuring_gear.len());
-        while adv_gear_allowance > 0 {
-            let mut choice = adventuring_gear.get(i).unwrap();
-            let mut price = choice.price.as_ref().unwrap().as_cp();
-            while price > adv_gear_allowance {
-                i += 1;
-                choice = adventuring_gear.get(i).unwrap();
-                price = choice.price.as_ref().unwrap().as_cp();
-            }
-            self.inventory.push(choice.clone());
-            adv_gear_allowance -= price;
-            i = rng.gen_range(0..adventuring_gear.len());
+        self.add_category_to_inv(
+            pool,
+            ItemKind::AdventuringGear,
+            None,
+            adv_gear_allowance,
+            |allowance, count| allowance > 0 && count < max_items / 4,
+        )
+        .await;
+
+        self.add_category_to_inv(
+            pool,
+            ItemKind::Consumables,
+            Some("Potions"),
+            alch_allowance,
+            |allowance, count| {
+                allowance > MIN_CONSUMABLE_COST && count < max_items / 4
+            },
+        )
+        .await;
+
+        self.add_category_to_inv(
+            pool,
+            ItemKind::Armor,
+            None,
+            weapons_allowance,
+            |allowance, count| {
+                allowance > MIN_ARMOR_COST && allowance > minimum_value && count < max_items / 4
+            },
+        )
+        .await;
+
+        self.add_category_to_inv(
+            pool,
+            ItemKind::Weapons,
+            None,
+            weapons_allowance,
+            |allowance, count| allowance > 0 && count < max_items / 4,
+        )
+        .await;
+
+        Ok(())
+    }
+
+    pub fn get_wealth_in_inv(&self) -> i32 {
+        let mut sum = 0;
+        for i in self.inventory.iter() {
+            sum += i.price.as_ref().unwrap().as_cp();
         }
 
-        tracing::trace!("adventuring gear done");
+        sum
+    }
 
-        let mut i = rng.gen_range(0..armor.len());
-        while armor_allowance > MIN_ARMOR_COST && armor_allowance > minimum_value {
-            let mut choice = armor.get(i).unwrap();
+    async fn add_category_to_inv<F: Fn(i32, i32) -> bool>(
+        &mut self,
+        pool: &Pool<Sqlite>,
+        category: ItemKind,
+        subcategory: Option<&str>,
+        mut allowance: i32,
+        predicate: F,
+    ) -> Result<()> {
+        let mut rng = rand::thread_rng();
+
+        let mut items = database::get_category(pool, category, Rarity::Common, true).await?;
+        if let Some(subcategory) = subcategory {
+            items.retain(|i| i.item_subcategory == subcategory);
+        }
+        let items = items; // immutable rebind
+
+        
+        let uncommon = database::get_category(pool, category, Rarity::Uncommon, true).await?;
+        let rare = database::get_category(pool, category, Rarity::Rare, true).await?;
+
+        let mut count = 0;
+
+        while predicate(allowance, count) {
+            let mut choice = items.choose(&mut rng).unwrap();
             let mut price = choice.price.as_ref().unwrap().as_cp();
-            while price > armor_allowance {
-                i += 1;
-                choice = armor.get(i).unwrap();
+            while price > allowance {
+                choice = items.choose(&mut rng).unwrap();
                 price = choice.price.as_ref().unwrap().as_cp();
             }
-            self.inventory.push(choice.clone());
-            armor_allowance -= price;
-            i = rng.gen_range(0..armor.len());
-        }
 
-        tracing::trace!("armor done");
-
-        let mut i = rng.gen_range(0..weapons.len());
-        while weapons_allowance > 0 {
-            let mut choice = weapons.get(i).unwrap();
-            let mut price = choice.price.as_ref().unwrap().as_cp();
-            while price > weapons_allowance {
-                i += 1;
-                choice = weapons.get(i).unwrap();
-                price = choice.price.as_ref().unwrap().as_cp();
+            let upgrade_roll = rng.gen_range(0.0..1.0);
+            if upgrade_roll <= UNCOMMON_CHANCE {
+                choice = uncommon.choose(&mut rng).unwrap();
+            } else if upgrade_roll <= RARE_CHANCE {
+                choice = rare.choose(&mut rng).unwrap();
             }
-            self.inventory.push(choice.clone());
-            weapons_allowance -= price;
-            i = rng.gen_range(0..weapons.len());
-        }
 
-        tracing::trace!("weapons done");
+            self.inventory.push(choice.clone());
+            allowance -= price;
+            count += 1;
+        }
 
         Ok(())
     }
@@ -183,6 +203,7 @@ impl Merchant {
 impl std::fmt::Display for Merchant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut adv_gear: HashMap<String, (i32, Price)> = HashMap::new();
+        let mut consumables: HashMap<String, (i32, Price)> = HashMap::new();
         let mut weapons: HashMap<String, (i32, Price)> = HashMap::new();
         let mut armor: HashMap<String, (i32, Price)> = HashMap::new();
         for item in self.inventory.iter() {
@@ -209,20 +230,34 @@ impl std::fmt::Display for Merchant {
                         armor.insert(item.name.clone(), (1, item.price.clone().unwrap()));
                     }
                 }
-                _ => todo!()
+                "Consumables" => {
+                    if consumables.contains_key(&item.name) {
+                        consumables.get_mut(&item.name).unwrap().0 += 1;
+                    } else {
+                        consumables
+                            .insert(item.name.clone(), (1, item.price.clone().unwrap()));
+                    }
+                }
+                _ => todo!(),
             }
         }
 
+        writeln!(f, "\n---------- ADVENTURING GEAR ---------- ");
         for (key, (count, price)) in adv_gear.into_iter() {
             writeln!(f, "{} x{} - {}", key, count, price);
         }
+        writeln!(f, "\n---------- POTIONS ---------- ");
+        for (key, (count, price)) in consumables.into_iter() {
+            writeln!(f, "{} x{} - {}", key, count, price);
+        }
+        writeln!(f, "\n---------- ARMOR ---------- ");
         for (key, (count, price)) in armor.into_iter() {
             writeln!(f, "{} x{} - {}", key, count, price);
         }
+        writeln!(f, "\n---------- WEAPONS ---------- ");
         for (key, (count, price)) in weapons.into_iter() {
             writeln!(f, "{} x{} - {}", key, count, price);
         }
-
 
         Ok(())
     }

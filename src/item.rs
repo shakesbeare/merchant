@@ -132,7 +132,7 @@ impl std::fmt::Display for Price {
     }
 }
 
-#[derive(enum_derived::Rand)]
+#[derive(enum_derived::Rand, Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub enum ItemKind {
     Vehicles,
     Weapons,
@@ -211,6 +211,23 @@ impl AsRef<str> for ItemKind {
             ItemKind::Figurehead => "Figurehead",
             ItemKind::BlightedBoons => "Blighted Boons",
             ItemKind::HighTech => "HighTech",
+        }
+    }
+}
+
+#[derive(enum_derived::Rand)]
+pub enum Rarity {
+    Common,
+    Uncommon,
+    Rare,
+}
+
+impl AsRef<str> for Rarity {
+    fn as_ref(&self) -> &str {
+        match self {
+            Rarity::Common => "Common",
+            Rarity::Uncommon => "Uncommon",
+            Rarity::Rare => "Rare",
         }
     }
 }
