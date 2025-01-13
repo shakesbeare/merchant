@@ -5,6 +5,7 @@ use std::{collections::HashMap, fs::File, path::Path};
 use crate::item::{Item, ItemCategory, Rarity};
 
 const DATABASE_PATH: &str = "./database.db";
+const CSV_PATH: &str = "assets/equipment.csv";
 
 #[derive(sqlx::FromRow, Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DbItem {
@@ -31,12 +32,14 @@ pub async fn init_db() -> Result<Pool<Sqlite>> {
     let mut do_populate = false;
     let pool = match Path::new(DATABASE_PATH).exists() {
         true => {
+            tracing::debug!("Database found");
             SqlitePoolOptions::new()
                 .max_connections(1)
                 .connect(&format!("sqlite://{}", DATABASE_PATH))
                 .await
         }
         false => {
+            tracing::debug!("Database not found");
             do_populate = true;
             let _ = File::create(DATABASE_PATH);
             SqlitePoolOptions::new()
@@ -52,7 +55,7 @@ pub async fn init_db() -> Result<Pool<Sqlite>> {
         let res = populate_tables(&pool).await;
         if res.is_err() {
             std::fs::remove_file(DATABASE_PATH).unwrap();
-            tracing::error!("{res:?}");
+            tracing::error!("Error while populating database: {res:?}");
             std::process::exit(1);
         }
     }
@@ -90,7 +93,8 @@ async fn ensure_tables(pool: &Pool<Sqlite>) -> Result<()> {
 }
 
 async fn populate_tables(pool: &Pool<Sqlite>) -> Result<()> {
-    let mut rdr = csv::Reader::from_path("assets/equipment.csv")?;
+    let csv_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(CSV_PATH);
+    let mut rdr = csv::Reader::from_path(csv_path)?;
     for row in rdr.deserialize() {
         let row: DbItem = row?;
 

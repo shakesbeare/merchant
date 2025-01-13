@@ -30,7 +30,9 @@ enum Subcommand {
 
 #[tokio::main]
 async fn main() {
-    let env_filter = EnvFilter::builder().parse_lossy("sqlx=warn");
+    tracing::debug!("Program Enter");
+    #[cfg(debug_assertions)]
+    let env_filter = EnvFilter::builder().parse_lossy("sqlx=warn,merchant_gen_lib=debug");
     #[cfg(debug_assertions)]
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::TRACE)
@@ -41,6 +43,7 @@ async fn main() {
         .with_max_level(tracing::Level::WARN)
         .init();
 
+    tracing::debug!("Initializing database");
     let pool = merchant_gen_lib::database::init_db()
         .await
         .unwrap_or_else(|e| {

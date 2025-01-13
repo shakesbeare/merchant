@@ -954,18 +954,8 @@ name = "merchant"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "chrono",
  "clap",
- "csv",
- "enum-derived",
- "enum-iterator",
- "lazy_static",
  "merchant_gen_lib",
- "rand",
- "rand_distr",
- "regex",
- "ron",
- "serde",
  "sqlx",
  "tokio",
  "tracing",
