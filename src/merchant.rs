@@ -5,7 +5,7 @@ use crate::{
     item::{Item, ItemKind, Price},
 };
 use anyhow::{Context, Result};
-use rand::seq::SliceRandom;
+use rand::{seq::SliceRandom, Rng};
 use sqlx::{Pool, Sqlite};
 
 const MIN_ARMOR_COST: i32 = 20;
@@ -48,9 +48,9 @@ impl Merchant {
 
     pub async fn generate_inventory(&mut self, pool: &Pool<Sqlite>) -> Result<()> {
         let mut rations_allowance = self.wealth / 8;
-        let mut adv_gear_allowance = self.wealth / 4;
-        let mut armor_allowance = self.wealth / 8;
-        let mut weapons_allowance = self.wealth / 8;
+        let mut adv_gear_allowance = self.wealth / 8;
+        let mut armor_allowance = self.wealth / 2;
+        let mut weapons_allowance = self.wealth / 4;
 
         let rations = database::get_rations(pool).await;
         let rations_price = rations.price.clone().unwrap().as_cp();
@@ -81,8 +81,6 @@ impl Merchant {
                 .as_cp()
                 .cmp(&a.price.as_ref().unwrap().as_cp())
         });
-        dbg!(&adventuring_gear);
-
         let mut rng = rand::thread_rng();
 
         tracing::trace!("Beginning inv generation");
@@ -94,7 +92,7 @@ impl Merchant {
 
         tracing::trace!("Rations done");
 
-        let mut i = 0;
+        let mut i = rng.gen_range(0..adventuring_gear.len());
         while adv_gear_allowance > 0 {
             let mut choice = adventuring_gear.get(i).unwrap();
             let mut price = choice.price.as_ref().unwrap().as_cp();
@@ -105,11 +103,12 @@ impl Merchant {
             }
             self.inventory.push(choice.clone());
             adv_gear_allowance -= price;
+            i = rng.gen_range(0..adventuring_gear.len());
         }
 
         tracing::trace!("adventuring gear done");
 
-        let mut i = 0;
+        let mut i = rng.gen_range(0..armor.len());
         while armor_allowance > MIN_ARMOR_COST {
             let mut choice = armor.get(i).unwrap();
             let mut price = choice.price.as_ref().unwrap().as_cp();
@@ -120,11 +119,12 @@ impl Merchant {
             }
             self.inventory.push(choice.clone());
             armor_allowance -= price;
+            i = rng.gen_range(0..armor.len());
         }
 
         tracing::trace!("armor done");
 
-        let mut i = 0;
+        let mut i = rng.gen_range(0..weapons.len());
         while weapons_allowance > 0 {
             let mut choice = weapons.get(i).unwrap();
             let mut price = choice.price.as_ref().unwrap().as_cp();
@@ -135,6 +135,7 @@ impl Merchant {
             }
             self.inventory.push(choice.clone());
             weapons_allowance -= price;
+            i = rng.gen_range(0..weapons.len());
         }
 
         tracing::trace!("weapons done");
