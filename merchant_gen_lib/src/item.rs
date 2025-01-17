@@ -50,7 +50,19 @@ impl From<DbItem> for Item {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    serde::Serialize,
+    serde::Deserialize,
+    sqlx::FromRow,
+    sqlx::Decode,
+    sqlx::Type,
+)]
 pub struct Price {
     text: String,
     pp: i32,
