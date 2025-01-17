@@ -63,7 +63,7 @@ pub async fn init_db() -> Result<Pool<Sqlite>> {
     Ok(pool)
 }
 
-async fn ensure_tables(pool: &Pool<Sqlite>) -> Result<()> {
+pub async fn ensure_tables(pool: &Pool<Sqlite>) -> Result<()> {
     sqlx::query(
         "
         PRAGMA foreign_keys = ON;
