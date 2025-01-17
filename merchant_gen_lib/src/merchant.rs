@@ -77,11 +77,11 @@ impl Merchant {
         Ok(())
     }
 
-    pub fn markdown(&self) {
+    pub fn markdown(&self) -> String {
         let s = self.to_string();
         // TODO: remove trailing ###
         let s = s.replace("----------", "###");
-        println!("{}", s);
+        return s;
     }
 
     pub fn len(&self) -> usize {

@@ -1,5 +1,7 @@
 use clap::{command, Parser};
 use merchant_gen_lib::merchant::Merchant;
+
+#[cfg(debug_assertions)]
 use tracing_subscriber::EnvFilter;
 
 #[derive(Debug, Parser)]
@@ -67,7 +69,7 @@ async fn main() {
             }
 
             if markdown {
-                merchant.markdown();
+                println!("{}", merchant.markdown());
             } else {
                 println!("{}", merchant);
             }
