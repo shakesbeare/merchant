@@ -13,7 +13,17 @@ const UNCOMMON_CHANCE: f32 = 0.005;
 const RARE_CHANCE: f32 = 0.001;
 const MERCHANT_WEALTH_DIVISOR: i32 = 3;
 
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    serde::Serialize,
+    serde::Deserialize,
+    sqlx::FromRow,
+)]
 pub struct Merchant {
     /// The merchant's wealth in cp
     wealth: i32,
