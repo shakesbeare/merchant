@@ -89,8 +89,8 @@ impl Merchant {
 
     pub fn markdown(&self) -> String {
         let s = self.to_string();
-        // TODO: remove trailing ###
-        let s = s.replace("----------", "###");
+        // TODO: remove trailing ##
+        let s = s.replace("----------", "##");
         return s;
     }
 
