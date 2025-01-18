@@ -956,6 +956,7 @@ dependencies = [
  "anyhow",
  "clap",
  "merchant_gen_lib",
+ "rand",
  "sqlx",
  "tokio",
  "tracing",

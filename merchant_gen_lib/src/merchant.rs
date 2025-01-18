@@ -6,7 +6,7 @@ use crate::{
 };
 use anyhow::Result;
 use enum_derived::Rand;
-use rand::{seq::SliceRandom, Rng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 use sqlx::{Pool, Sqlite};
 
 const UNCOMMON_CHANCE: f32 = 0.005;
@@ -128,7 +128,12 @@ impl Merchant {
     }
 
     async fn add_all_to_inv(&mut self, pool: &Pool<Sqlite>, mut allowance: i32) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        );
         let minimums = database::get_min_for_each_category(pool, self.level).await?;
 
         #[allow(unused_assignments)]
@@ -190,7 +195,12 @@ impl Merchant {
         mut allowance: i32,
         predicate: F,
     ) -> Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        );
 
         let mut items =
             database::get_category(pool, category, Rarity::Common, self.level, true).await?;
