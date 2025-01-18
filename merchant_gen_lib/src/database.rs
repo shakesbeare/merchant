@@ -92,7 +92,7 @@ pub async fn ensure_tables(pool: &Pool<Sqlite>) -> Result<()> {
     Ok(())
 }
 
-async fn populate_tables(pool: &Pool<Sqlite>) -> Result<()> {
+pub async fn populate_tables(pool: &Pool<Sqlite>) -> Result<()> {
     let csv_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(CSV_PATH);
     let mut rdr = csv::Reader::from_path(csv_path)?;
     for row in rdr.deserialize() {
